@@ -1,0 +1,36 @@
+RowName,Section,Speaker,Text,Draft
+opening_01,opening,DON GIOVANNI,You're finally awake. Don't look at me like that - this isn't the first time we've met. Don't you remember?,
+opening_02,opening,DON GIOVANNI,They say I am guilty. That I should stay here forever. But they only remember what I did - never why I did it.,
+opening_03,opening,DON GIOVANNI,"So I need someone without prejudice. Someone who doesn't remember the past, and doesn't know me.",
+opening_04,opening,DON GIOVANNI,"These masks - put them on, and you will see what others saw. And what I saw.",
+opening_05,opening,DON GIOVANNI,Go and see those stories. Then come back and tell me: do I truly not deserve forgiveness?,
+openingTitle_01,openingTitle,,Change the mask. Does the truth change with it?,
+act1Intro_01,act1Intro,COMMENDATORE,"Stop! You shameless wretch - you wanted to violate my daughter, and you think you can simply leave?",
+act1Intro_02,act1Intro,DON GIOVANNI,"Out of my way, old man. Let me go.",
+act1Intro_03,act1Intro,COMMENDATORE,Draw your sword! Come and fight me!,
+act1Intro_04,act1Intro,DON GIOVANNI,You asked for this yourself!,
+act1Mono_don_01,act1Mono_don,(don mask),"He drew first. Steel against steel, man against man.",yes
+act1Mono_don_02,act1Mono_don,(don mask),I gave him every chance to walk away. This was a duel - nothing more.,yes
+act1Mono_anna_01,act1Mono_anna,(anna mask),Father?,yes
+act1Mono_anna_02,act1Mono_anna,(anna mask),"A moment ago this was our home. Now every wall is closing in,",yes
+act1Mono_anna_03,act1Mono_anna,(anna mask),and the only way out is the one he is standing in.,yes
+act1Mono_servant_01,act1Mono_servant,(servant mask),I could only watch through the cracks. The blade. His chest. The sound.,yes
+act1Mono_servant_02,act1Mono_servant,(servant mask),I did nothing. What could a servant do?,yes
+t1_01,t1,DON GIOVANNI,You saw it. I had no choice. He wanted to kill me - I could only defend myself.,
+t1_02,t1,DON GIOVANNI,Go on. I'll be watching you.,
+act2Intro_01,act2Intro,FIRST SHADOW,"Mercy, sirs - I am not the man you want!",yes
+act2Intro_02,act2Intro,SECOND SHADOW,Nor am I. Look closer - I am only the servant.,yes
+act2Mono_don_01,act2Mono_don,(don mask),"A cloak, a hat, a borrowed voice - and the whole town chases the wrong man.",yes
+act2Mono_don_02,act2Mono_don,(don mask),Is it a crime to be clever?,yes
+act2Mono_servant_01,act2Mono_servant,(servant mask),"His coat is heavy, and every lantern in the town is turned on me.",yes
+act2Mono_servant_02,act2Mono_servant,(servant mask),"If they hang me, they will hang his name. No one will ask for mine.",yes
+act2Mono_anna_01,act2Mono_anna,(anna mask),"There he is again, above us, laughing in another man's clothes.",yes
+act2Mono_anna_02,act2Mono_anna,(anna mask),We can shout as loud as we like. He never has to come down.,yes
+act2Pick_01,act2Pick,,Which of them is Don Giovanni?,
+t2_01,t2,DON GIOVANNI,"What of it? He got away in the end, didn't he? No one died... not this time.",
+act3Question_01,act3Question,THE SHADOW,"You have seen everything. Now, tell me - should Don Giovanni be forgiven?",
+act3Answer_01,act3Answer,,I have no right to forgive him on behalf of those he hurt.,
+act3Reply_01,act3Reply,THE COMMENDATORE,So. Even you cannot absolve yourself.,
+act3Cry_01,act3Cry,DON GIOVANNI,"No! No! I gave you my memories, my thoughts, my voice - you are part of me!",
+act3Cry_02,act3Cry,DON GIOVANNI,Why won't even you forgive me? You are me. You were my last chance. No-!,
+endCard_01,endCard,,No one can forgive on behalf of the wounded.,
