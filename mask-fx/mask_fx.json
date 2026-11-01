@@ -1,0 +1,215 @@
+{
+  "about": "Mask on / mask off for a first-person camera, taken out of the Don Giovanni greybox. demo.html and UDGMaskFXComponent use exactly these numbers.",
+  "space": "UE camera space: X forward, Y right, Z up. Centimetres. Rotations are FRotator (Pitch, Yaw, Roll) in degrees. The hand pivot is the centre of the palm; each mask pivot is the centre of its bounding box.",
+  "mask_order": [
+    "Don Giovanni",
+    "Donna Anna",
+    "Leporello"
+  ],
+  "poses_cm": {
+    "start": [
+      42,
+      22,
+      -44
+    ],
+    "show": [
+      33,
+      2.5,
+      -13
+    ],
+    "face": [
+      8.5,
+      0,
+      -10
+    ],
+    "rest": [
+      30,
+      20,
+      -55
+    ],
+    "take_end": [
+      45,
+      26,
+      -50
+    ]
+  },
+  "mask_offset_cm": [
+    1.2,
+    0,
+    11.5
+  ],
+  "mask_tilt": 0.6,
+  "turn_from": 0.35,
+  "phases": {
+    "put_rise": {
+      "seconds": 0.5,
+      "ease": "cubic_in_out",
+      "from": "start",
+      "to": "show",
+      "pitch": [
+        -40.11,
+        0
+      ],
+      "roll": [
+        -20.05,
+        0
+      ],
+      "mask_shown": true
+    },
+    "put_press": {
+      "seconds": 0.3,
+      "ease": "quad_in",
+      "from": "show",
+      "to": "face",
+      "pitch": [
+        0,
+        0
+      ],
+      "roll": [
+        0,
+        0
+      ],
+      "mask_shown": true
+    },
+    "put_drop": {
+      "seconds": 0.35,
+      "ease": "cubic_in_out",
+      "from": "face",
+      "to": "rest",
+      "pitch": [
+        0,
+        28.65
+      ],
+      "roll": [
+        0,
+        17.19
+      ],
+      "mask_shown": false
+    },
+    "take_reach": {
+      "seconds": 0.28,
+      "ease": "cubic_in_out",
+      "from": "rest",
+      "to": "face",
+      "pitch": [
+        28.65,
+        0
+      ],
+      "roll": [
+        17.19,
+        0
+      ],
+      "mask_shown": false
+    },
+    "take_pull": {
+      "seconds": 0.45,
+      "ease": "cubic_in_out",
+      "from": "face",
+      "to": "take_end",
+      "pitch": [
+        0,
+        -34.38
+      ],
+      "roll": [
+        0,
+        -17.19
+      ],
+      "mask_shown": true
+    }
+  },
+  "how_to_pose": {
+    "progress": "k = ease(time in phase / seconds)",
+    "hand": "location = lerp(poses_cm[from], poses_cm[to], k); rotation = FRotator(lerp(pitch), 0, lerp(roll))",
+    "mask": "location = hand location + mask_offset_cm (the offset is not turned with the hand); hidden when mask_shown is false",
+    "mask_rotation": "three single turns applied one after another about the camera axes: first roll = mask_tilt * hand roll, then yaw = -180 * (1 - turn), then pitch = mask_tilt * hand pitch. In UE: FQuat(FRotator(pitch, 0, 0)) * FQuat(FRotator(0, yaw, 0)) * FQuat(FRotator(0, 0, roll)). A single FRotator(pitch, yaw, roll) is NOT the same: while the mask shows its face it would lean the wrong way (up to 48 degrees off).",
+    "turn": "put_rise: clamp((k - turn_from) / (1 - turn_from), 0, 1); every other phase: 1. turn 0 shows the face of the mask to the player, 1 its inside."
+  },
+  "sequences": {
+    "wear": [
+      "put_rise",
+      "put_press",
+      "put_drop"
+    ],
+    "remove": [
+      "take_reach",
+      "take_pull"
+    ],
+    "swap": [
+      "take_reach (old mask)",
+      "take_pull (old mask)",
+      "put_rise (new mask)",
+      "put_press (new mask)",
+      "put_drop (new mask)"
+    ],
+    "input": "Ignored while any phase runs. Asking for the mask already on the face does nothing."
+  },
+  "events": {
+    "wear_requested": "the wear is accepted (the greybox plays the mask motif here)",
+    "put_started": "put_rise starts",
+    "scene_cue": "scene_cue_seconds after put_rise starts (the greybox starts moving the scenery here)",
+    "mask_on": "end of put_press: the mask hides, the blink starts, the vignette fades in",
+    "put_finished": "end of put_drop",
+    "take_started": "take_reach starts (the greybox puts the scenery back here)",
+    "mask_off": "end of take_reach: the mask shows, the vignette fades out",
+    "take_finished": "end of take_pull"
+  },
+  "scene_cue_seconds": 0.42,
+  "blink": {
+    "color_srgb": "#0d0907",
+    "max_alpha": 0.92,
+    "ramp_seconds": 0.3,
+    "release_seconds": 0.14,
+    "fade_seconds": 0.23,
+    "formula": "peak = max_alpha * css_ease(min(t, release_seconds) / ramp_seconds); t <= release_seconds: alpha = peak; after: alpha = peak * (1 - css_ease((t - release_seconds) / fade_seconds))"
+  },
+  "vignette": {
+    "fade_seconds": 0.9,
+    "image": "full-screen RGBA texture stretched to the screen, one per mask (T_DG_Vignette_*)",
+    "formula": "on change: from = current alpha, duration = fade_seconds * |target - from|, alpha = lerp(from, target, css_ease(t / duration))"
+  },
+  "easing": {
+    "cubic_in_out": "k < 0.5 ? 4k^3 : 1 - (-2k + 2)^3 / 2",
+    "quad_in": "k^2",
+    "css_ease": "cubic-bezier(0.25, 0.1, 0.25, 1.0)"
+  },
+  "camera": {
+    "greybox_vertical_fov_deg": 66,
+    "greybox_horizontal_fov_deg_16_9": 98.2,
+    "greybox_near_clip_cm": 1,
+    "ue_default_horizontal_fov_deg": 90,
+    "ue_default_near_clip_cm": 10
+  },
+  "sound": {
+    "base_hz": 293.66,
+    "semitones": [
+      [
+        0,
+        4,
+        7,
+        12
+      ],
+      [
+        0,
+        3,
+        7,
+        3
+      ],
+      [
+        0,
+        3,
+        6,
+        9
+      ]
+    ],
+    "note_gap_seconds": 0.16,
+    "note_seconds": 0.9,
+    "note_gain": 0.07,
+    "wave": "triangle",
+    "files": [
+      "SFX_DG_MaskMotif_Don.wav",
+      "SFX_DG_MaskMotif_Anna.wav",
+      "SFX_DG_MaskMotif_Leporello.wav"
+    ],
+    "note": "note_gain is before the greybox master gain 0.6; the WAV files are normalised to a -6 dBFS peak"
+  }
+}
