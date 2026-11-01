@@ -1,4 +1,4 @@
-# 交接：在 UE 5.8 里搭《THE FINAL DEFENCE》
+# 交接：在 UE 5.8 里搭《THE FINAL DEFENCE》（对应灰盒 v0.2）
 
 这份文档写给新开的本地 Claude Code 会话。你没有之前那个会话的记忆，需要的东西都在这个仓库里。
 请按阶段做，**每做完一个阶段就按第 8 节回报，然后停下来，等用户确认后再做下一阶段。**
@@ -13,11 +13,11 @@
    - 现有工程是蓝图工程还是 C++ 工程？组里谁的电脑装了 Visual Studio 2022 或 2026，并勾选了"使用 C++ 的游戏开发"？
    - 工程用什么方式在组里共享（git + LFS、网盘，还是别的）？
 3. 判断依据，按优先级从高到低：
-   1. `prototype/data/layout.json`：每件几何体在每张面具下的位置、旋转、缩放和显隐，还有记忆圈、大黑影碎片、第三幕的墙、三套颜色和各种时长。这些数字是灰盒自动导出的。
-   2. `prototype/index.html`：灰盒，在浏览器里能玩。规则、时序、触发条件都以它为准。相关代码：`MaskSystem`、`Memory`、`MorphGroup` / `Morphable`、`Atmosphere`、`Player`、`Opening`、`Act1`、`Shadow1`、`Act2`、`Act3`、`exportLayout`。
-   3. `docs/design.md`：设计意图。
-   4. `prototype/reference/`：固定机位下的灰盒截图，机位数据在 `views.json` 里，用来和 UE 里的画面对照。
-4. **不要改的东西：** `layout.json` 里的数字，以及台词（`prototype/data/script.csv`，和灰盒里的 `SCRIPT` 是同一份）。台词归负责剧情文本的同学管，觉得哪里不对就写进回报里。
+   1. `prototype/data/layout.json`：几何体库、螺旋路线、**每件几何体的所有站位**、走廊的切换距离、各场景的关键点、巨像、配色、运动参数。灰盒自动导出。
+   2. 灰盒源码 `prototype/src/`（`index.html` 由它生成），在浏览器里能玩。规则、时序、触发条件都以它为准。和 UE 最相关的：`04_stage.js`（`Piece`、`Stage`、`Route`、`buildCorridor`、`Corridor`、`Boundary`）、`05_player.js`（`Player`、`HandRig`、`MaskSystem`）、`06_giant.js`、`07_acts.js`。
+   3. `docs/level-design.md`：场景设计、动线、灯光，以及每条反馈是怎么落实的。
+   4. `docs/design.md`：故事、台词、面具规则。
+4. **不要改的东西：** `layout.json` 里的数字，以及台词（`prototype/data/script.csv`，和 `src/01_base.js` 里的 `SCRIPT` 是同一份）。觉得哪里不对就写进回报里。
 5. **不要做的事（留给组员）：** 正式的模型、材质、音乐和音效，以及正式的 UI 美术。你搭的是"能玩的灰盒"，外观跟灰盒保持一致就行。
 
 ---
@@ -37,17 +37,17 @@
 
 ## 2. 坐标约定
 
-- 灰盒（three.js）：单位是米；+x 是东，+y 是上，−z 是北，玩家一直往 −z 方向走；右手坐标系。
-- `layout.json` 里每个变换都给了两份：`three` 和 `ue`。`ue` 是按下面的规则换算出来的：
-  - 位置：UE = (x, z, y) × 100（厘米）。也就是 **UE X = 东，UE Y = 南，Z = 上；玩家在 UE 里一直往 −Y 走。**
-  - 四元数：(−qx, −qz, −qy, qw)。
-  - 缩放：(sx, sz, sy)。
+- 灰盒（three.js）：单位是米；+x 是东，+y 是上，−z 是北；右手坐标系。**世界中心（巨像）在原点。**
+- `layout.json` 里每个站位都给了两份：`three` 和 `ue`。`ue` 的换算规则：
+  - 位置：UE = (x, z, y) × 100（厘米），也就是 **UE X = 东，UE Y = 南，Z = 上**；
+  - 四元数：(−qx, −qz, −qy, qw)；
+  - 缩放：(sx, sz, sy)，也就是 `dims_m` 换轴以后的值；
   - `rotator_pyr` 是用 `FQuat::Rotator()` 同样的算法得到的 [Pitch, Yaw, Roll]。
-- 这套换算有一个前提：UE 导入 glTF 时，会把 glTF 的 (x, y, z) 变成 UE 的 (x, z, y)。**第 3.3 步要先验证这个前提。** 如果实际不是这样，就别用 `ue` 字段，改用 `three` 字段按你实际看到的映射重新算（见 3.3）。
+- 这套换算有一个前提：UE 导入 glTF 时，会把 glTF 的 (x, y, z) 变成 UE 的 (x, z, y)。**第 3.3 步要先验证这个前提。** 如果实际不是这样，就别用 `ue` 字段，改用 `three` 字段按你实际看到的映射重新算。
 
 ---
 
-## 3. 第一阶段：导入资源并核对
+## 3. 第一阶段：导入资源，核对，把所有几何体摆出来
 
 **3.1 插件**：打开 Python Editor Script Plugin，以及 glTF 导入（Interchange 自带）。打开后重启编辑器。
 
@@ -55,13 +55,13 @@
 
 | 文件 | 是什么 |
 |---|---|
-| `DG_TriSlab` `DG_Spike` `DG_TriPrism` `DG_Block` `DG_Orb` `DG_Drum` `DG_Cone` | 1 米大小的单位网格，轴心在底面中心。灰盒里每件几何体的实际尺寸就是它的缩放值 |
+| `DG_Prism` `DG_Spike` `DG_Sail` `DG_Blade` `DG_Pillar` `DG_Notch` `DG_Cube` `DG_Orb` `DG_Drum` `DG_Cone` | 10 种基础几何体，1 米大小的单位网格，轴心在底面中心。每件几何体的实际大小 = 缩放 = `dims_m` |
 | `DG_Plane` | 1 × 1 米的平面，轴心在下边中点，剪影用 |
 | `DG_AxisMarker` | 核对坐标轴用，见 3.3 |
 
-导入时不要缩放，保留轴心。三角板、尖碑、三棱柱带的是硬边法线，导入时选"导入法线"，不要重新计算法线。
+导入时不要缩放，保留轴心。棱柱、尖碑、三角板、斜顶板带的是硬边法线，导入时选"导入法线"，不要重新计算法线。
 
-**3.3 坐标轴核对（必须做）**：把 `DG_AxisMarker` 导进来，摆在原点，不旋转、不缩放。它有三根臂：`arm_x` 长 1 米，`arm_y` 长 0.6 米，`arm_z` 长 0.3 米，都从原点出发。按第 2 节的前提，应该看到：
+**3.3 坐标轴核对（必须做）**：把 `DG_AxisMarker` 摆在原点，不旋转、不缩放。三根臂都从原点出发：
 
 | 臂 | 应该指向 | 末端位置（厘米） |
 |---|---|---|
@@ -69,100 +69,92 @@
 | `arm_y`（0.6 m） | UE +Z（向上） | (0, 0, 60) |
 | `arm_z`（0.3 m） | UE +Y | (0, 30, 0) |
 
-把三根臂实际的包围盒写进回报。如果和上表不一样：
-- 记下实际的映射矩阵 M（UE = M · three · 100）；
-- 位置用 M · p · 100，旋转矩阵用 M · R · Mᵀ，缩放按 M 对应地换轴；
-- 用 `three` 字段重新算，不要用 `ue` 字段；
-- 在回报里写清楚。
+把三根臂实际的包围盒写进回报。对不上的话，记下实际的映射矩阵 M，用 `three` 字段重新算（位置 M·p·100，旋转 M·R·Mᵀ，缩放按 M 换轴）。
 
-**3.4 贴图**：
-- `prototype/assets/silhouettes/*.png` → `/Game/DG/Silhouettes/`。512 × 512，白色人形，透明底。材质用 Masked，颜色是黑色，不透明度取贴图的 alpha。`bust.png` 是大黑影，`hand.png` 是巨手。
-- `prototype/assets/silhouettes/marble.png` → 大理石底色。
-- `prototype/assets/vignette_*.png` → `/Game/DG/UI/`。眼洞暗框，1600 × 900，中间透明。
-- `prototype/assets/icon_*.png` → 面具栏的图标。
+**3.4 材质和贴图**：
+- 材质参数集合 `MPC_DG`：颜色 `Plum`、`Green`、`Marble`、`Orb`、`White`、`Floor`，由配色系统改（见 4.6）。几何体按 `category` 用对应材质：`plum`、`green`、`marble`（用 `assets/silhouettes/marble.png`）、`orb`、`white`、`eye`（白色自发光，亮度由巨像控制）。
+- `prototype/assets/silhouettes/*.png`：剪影贴图（白色人形、透明底），材质用 Masked、颜色黑色。
+- `prototype/assets/vignette_*.png`：眼洞暗框（只压画面边缘）；`icon_*.png`：面具栏图标。
 
-**3.5 面具**：先用 `prototype/assets/ue/mask_*.glb`（已减面、真实尺寸约 16 cm、没有压缩）。其中仆从面具的模型本身有问题：原文件大了约 40 倍、眉毛上方两个破洞、左太阳穴一个小洞、顶边没封口。建模的同学修好以后再换成正式版本。
+**3.5 面具**：先用 `prototype/assets/ue/mask_*.glb`（已减面、真实尺寸约 16 cm）。仆从面具原文件的问题（大了约 40 倍、眉毛上方两个破洞、左太阳穴一个小洞、顶边没封口）要由建模的同学修。
 
-**3.6 飞鸟特效包**（组员从百度网盘给的 `InsectsBirdsFish.zip`，UE 4.15 的资源，不在仓库里，要向用户要）：
-- **不要用"导入"。** 把压缩包里面那一层 `InsectsBirdsFish` 文件夹整个复制到工程的 `Content/` 下。资源之间的引用路径写死成了 `/Game/InsectsBirdsFish/...`，多套一层文件夹引用就会断。
-- 打开后保存会升级成 5.8 格式。粒子用的是 Cascade，在 5.8 里还能用。
-- 设计里暂定用两个：`P_Moth_Swarm`（第二幕追光里的飞蛾）、`P_Crow_Group`（第一幕出口打开时飞散的乌鸦）。这两处组里还没最终确定，先放上，回报里注明。
-- 这个包是第三方素材，**不要提交进这个公开仓库**。
+**3.6 飞鸟特效包**（组员给的 `InsectsBirdsFish.zip`，UE 4.15 资源，不在仓库里，向用户要）：不要用"导入"，把压缩包里那一层 `InsectsBirdsFish` 文件夹整个复制到 `Content/` 下（引用路径写死成 `/Game/InsectsBirdsFish/...`）。第一幕出口打开时用 `P_Crow_Group`（灰盒里是平面乌鸦），第二幕追光里可以加 `P_Moth_Swarm`。这个包是第三方素材，**不要提交进这个公开仓库**。
 
-**3.7 字体**：游戏里的字是英文，找一个衬线字体（比如开源的 EB Garamond）。英文台词只用英文半角标点，不要混进中文全角的引号、逗号，否则会显示成方框。
+**3.7 摆出全部几何体**：写 `ue/Scripts/dg_spawn_layout.py`，读 `layout.json` 的 `pieces`，每件生成一个 Static Mesh Actor：网格 = `/Game/DG/Kit/DG_<kit>`，缩放 = 换轴后的 `dims_m`，材质按 `category`，摆在它的**初始站位**：
 
-第一阶段做完就回报（第 8 节），回报里要有 3.3 的核对结果。
+| `group` | 初始站位 |
+|---|---|
+| `corridor` | `ahead` |
+| `dressing` | `home` |
+| `opening` | 有 `wreck` 用 `wreck`，否则 `home` |
+| `act1` | `approach` |
+| `act2` | `approach` |
+| `balcony` | `home` |
+| `giant` | `cloud` |
+
+给每个 Actor 加 Tag：`DG_Piece`、`DG_Group=<group>`、`DG_Id=<id>`，把所有站位存进一个组件或数据资产（第二阶段要用）。地面是一整块直径 460 m 的大理石平面。
+
+**3.8 重叠检查**：把灰盒的 `checkAll()`（`src/08_main.js`）翻成 `ue/Scripts/dg_check_layout.py`：对每个场景的每个状态，任意两件几何体的占地（长条形几何体是一条线段加半径，其余是一个圆）都不能重叠；倾斜几何体的顶部不能相碰；场景状态里不能有东西进入玩家站的空地。**灰盒里的结果是 0 处问题**，UE 里也应该是 0。
+
+第一阶段做完就回报：坐标轴核对结果、检查结果，以及从开场位置看过去的一张截图。
 
 ---
 
 ## 4. 第二阶段：系统（C++ 写核心，全部暴露给蓝图）
 
-用 C++ 写，是为了规则和数据好核对、好复用；同时要把所有东西暴露给蓝图（`BlueprintCallable`、`BlueprintAssignable`、`EditAnywhere`），这样做 UI 和美术的同学用蓝图就能接。如果第 0 步问出来组里没人能编译 C++，就先停下来跟用户商量（比如把编好的 `Binaries/` 一起提交）。
+用 C++ 写，所有东西都暴露给蓝图（`BlueprintCallable`、`BlueprintAssignable`、`EditAnywhere`），方便做 UI 和美术的同学用蓝图接。组里没人能编译 C++ 的话，先停下来跟用户商量（比如把编好的 `Binaries/` 一起提交）。代码放在 `ue/Source/DonGiovanni/`，脚本放在 `ue/Scripts/`，再复制进 UE 工程；UE 工程本身不进这个仓库。
 
-代码放在仓库的 `ue/Source/DonGiovanni/` 里，Python 脚本放在 `ue/Scripts/` 里，再复制进 UE 工程。UE 工程本身不进这个仓库。
+**4.1 舞台机械 `UDGStageSubsystem`（WorldSubsystem）**：管理所有几何体，逐帧翻译 `Stage.#step`。
+- 每件几何体有若干站位；`GoTo(id, pose)` 设定目标；
+- 速度：没单独设的按 `clamp(3.3 − 0.07 × 高度, 1.5, 3.2)` m/s；起步和停下按 `accel_rate` 缓动；转身 32°/s；
+- 互相避让：用自己 0.45 秒后的位置，与其他几何体保持 0.7 m 以上，带 0.35 的侧向偏移；一件立在另一件上（高度不重叠）时不避让；
+- 让玩家：离玩家不到 1.1 m 时，去掉朝玩家方向的速度分量；
+- 离玩家 95 m 以外的几何体不避让，直接滑过去；
+- 一帧时间太长时拆成每步 0.05 秒；
+- 有 `drift` 的几何体（雾里散落的那些）在站位附近缓慢漂移；
+- 玩家碰撞：只有站在地面上的几何体挡玩家，用同样的线段加半径。
 
-| 灰盒里 | UE 里 | 做什么 |
-|---|---|---|
-| `Player` | `ADGCharacter` + `ADGPlayerController` | 第一人称；走路 140 cm/s，没有跑和跳；视线高 165 cm；胶囊半径 35 cm |
-| `MaskSystem` | `UDGMaskSubsystem`（WorldSubsystem） | 当前面具、有没有拿到面具、当前所在的记忆；戴上、摘下；事件 `OnMaskChanged` |
-| `Memory` | `ADGMemory`（每幕摆一个） | 记忆圈（中心、半径）、"看过"的记录、`Enabled` / `Complete`；驱动本幕所有变形件；`OnComplete` |
-| `Morphable` / `MorphGroup` | `UDGMorphComponent`（挂在每个会动的 Actor 上） | 每个状态一套变换和显隐；按状态切换并插值 |
-| `Atmosphere` | `ADGAtmosphere`（每个关卡一个） | 三套颜色：雾、天光、平行光，以及材质参数集合 `MPC_DG` 里的 Slab、Prism、Block、Orb、White、Floor 六个颜色 |
-| `ScreenUI` | `UDGNarrativeSubsystem` + UMG | 字幕、内心独白、居中大字、提示、选项；台词从 DataTable 读（`script.csv` 直接导成 DataTable） |
-| `Watcher` | `ADGWatcherEyes` | 大黑影的一双眼睛，始终可见、始终朝向玩家 |
+**4.2 路线和进度**：用 `route.samples_every_1m` 建一条 Spline。进度 = 玩家走到过的最远路线距离，受当前场景的上限（`cap`）限制。走廊规则（`corridor.rule`）：`slot.s > 进度 + open_at_m` → `ahead`；`slot.s < 进度 − close_at_m` → `behind`；否则 `open`。
 
-**面具规则**（design §3；数字取自 `layout.json` 的 `timings`）：
-- 只有在当前这一幕的记忆圈里才能戴（第一幕半径 3.5 m，第二幕 3 m）。在圈外按戴面具，提示 *"Masks can only be worn inside the circle of light."*
-- 戴上：屏幕闪一下白、眼洞暗框淡入（0.9 s）；本幕所有变形件切到这张面具的状态，用时 3.0 s，按离记忆圈中心的远近依次晚 0–0.8 s 开始，缓入缓出；颜色 2.6 s 过渡过去。
-- 戴上后 0.9 s 内不能换面具。戴着面具时出不了记忆圈：在圈边加一道只在戴面具时打开的看不见的墙。
-- 一张面具算"看过"：变形完成（3.2 s），并且这张面具的内心独白播完。中途换了面具或摘了面具，就不算看过。
-- 摘下：所有件 2.4 s 回到原样，颜色 2.0 s 回去。如果三张都已经看过，这时本幕完成（`OnComplete`）。
-- 面具栏：灰色（不能戴）/ 流光（这一幕还没看过）/ 小勾（看过）/ 抬起（正戴着）。
+**4.3 可走范围**：玩家只能在"走廊范围"（路线左右各 `half_width + 0.85 m`，从进度往回 13 m 到上限）和各场景打开的区域里走。灰盒是在角色移动里限制的（`Boundary`），UE 里也这样做最简单。墙是几何体，这道限制只是兜底。
 
-**按键**（Enhanced Input）：WASD 走；鼠标和方向键看；Tab 打开面具栏（显示鼠标指针，左键选）；1 / 2 / 3 直接戴（1 唐璜、2 安娜、3 仆从）；右键摘下；E 互动；Esc 菜单。
+**4.4 记忆场景 `ADGMemory`**（第一幕、第二幕各一个）：空地中心和半径来自 `scenes.act1` / `scenes.act2`。规则见 `src/07_acts.js` 的 `Memory` 和 `design.md` §3：只有在空地里才能戴面具；戴着面具出不了空地；看过 = 重组完成（2.4 s）并且独白播完；三张都看过、摘下以后场景完成。戴面具时几何体速度 ×2.1，摘下时 ×1.7。
 
-**`UDGMorphComponent` 至少要有：**
-- `SetState(FName State, float Duration, float Delay)`；
-- `SnapTo(FName State)`；
-- 状态名：`neutral`、`don`、`anna`、`servant`，以及各幕自己的 `hidden`、`open`；
-- 每个状态的变换和 `Visible`（0–1）。实心件的 `Visible` 用缩放体现，剪影和光晕用材质不透明度体现；
-- `Drift`：只在 `neutral` 状态下生效的缓慢漂移，参数见灰盒 `Act1.#build` 里的 `drift()`；
-- 状态缺失时退回 `neutral`。
+**4.5 第一人称的手**：一只深色的手（可以先用简单网格拼）托着面具，时间表见 `level-design.md` 第 8 节；扣上的瞬间画面暗一下、出现眼洞暗框；手抬起 0.42 秒后场景开始重组。
 
-第二阶段做完就回报。回报里附一个测试关卡：一个记忆圈，加三件能变形的方块。
+**4.6 配色和光**：`palettes` 里每套配色有雾颜色和浓度（指数雾）、天光两色和强度、主光颜色和强度、六种材质颜色。用 Exponential Height Fog（开体积雾）、Sky Light、主平行光（投影）、一盏不投影的补光（颜色跟天光、强度 0.32 × 半球光强度）。追光用 6 盏 Spot Light 的固定池，开体积雾以后光柱会自己显出来，不需要灰盒里的光锥网格。
+
+**4.7 巨像 `ADGGiant`**：零件的站位 `cloud` / `stand` / `crouch` 都在 `pieces` 里（`group = giant`）。组装和俯身时每件的速度 = 距离 ÷ 7 秒，零件之间错开 0–2.1 秒出发；头部一组（`giant.head_group`）以 14°/s 转向玩家，最多 80°；眼睛材质的自发光亮度在点亮后约 2.2–2.5 之间轻微起伏。巨像身后放一团大的柔光，始终在它相对玩家的背面。
+
+**4.8 文字**：字幕、独白、居中大字、提示、选项；台词从 DataTable 读（`script.csv` 直接导入）。点鼠标、空格或回车立刻跳到下一句。
+
+第二阶段做完就回报。附一个测试关卡：一段走廊加一个记忆场景，录一小段视频或几张连续截图，展示几何体合拢、让开、避让。
 
 ---
 
-## 5. 第三阶段：开场 + 第一幕
+## 5. 第三阶段：开场和第一幕
 
-1. 写 `ue/Scripts/dg_build_from_layout.py`：读 `layout.json`，生成以下内容：
-   - `statics`：地面、开场的桌椅；
-   - `acts.act1.pieces`：每件生成一个 Actor（`kit` 对应 3.2 的网格，`category` 对应材质，剪影用 `DG_Plane` 加 `pose` 对应的贴图），挂上 `UDGMorphComponent`，把它的所有 `states` 填进去；
-   - `acts.act1.memory_circle`：生成 `ADGMemory`。
-2. 开场照灰盒 `Opening` 来做：黑屏淡入；桌上三张面具表面像液体一样流动（灰盒用的是顶点抖动，UE 里用 World Position Offset 加噪声就行）；台词说到 *"These masks"* 时三张面具依次清晰一下；然后桌子和唐璜碎成粒子，面具飞进面具栏，出现 *"Change the mask. Does the truth change with it?"*，北边亮起一条路。
-3. 第一幕照灰盒 `Act1` 来做：走进庭院南沿，播放 A1-0 的四句台词，然后记忆圈亮起；三张面具各自的光（仆从视角的顶光、安娜视角唐璜身后的冷光）和剪影姿势的切换（原样时两个人来回刺、仆从视角刺出一剑、骑士长倒下）见 `#onWear` 和 `update`。
-4. **核对：**
-   - 在 `prototype/reference/views.json` 列出的机位上各摆一个相机（16:9，竖直视角 66°），截图，和同名的灰盒截图并排放进回报；
-   - 写一个检查脚本：任何状态下，任何会动的件都不能进入记忆圈（件的占地边缘到圈心的距离 ≥ 半径）；
-   - 实际玩一遍：圈外戴不上；戴着面具出不了圈；三张都看过、摘下以后出口打开；能走到出口外面。
+照灰盒 `Opening` 和 `Act1` 做（数字都在 `layout.json` 的站位里）：
+- 开场：桌子（大理石方柱 + 两块小方块）在台词结束后从活门**沉下去**；残骸按顺序站到 `clear`；走廊开始工作；进度上限 = `scenes.act1.mark_s`。
+- 第一幕：进入庭院后，几何体以 1.35 m/s 走向 `gather`，可走的圆从 15.5 m 缩到 5.2 m（以空地为中心、18 秒，永远不缩到玩家脚下）；一束追光落在空地；台词 A1-0；玩家走进空地后面具可用。三张面具的站位分别是 `don` / `anna` / `servant`，仆从视角下两个升降台从地下升起。完成后走向 `exit`。
+- 追光：每个状态的主要人物都要有追光（灰盒 `#stateLook`）。
+
+核对：从空地看过去，和 `docs/img/v0.2/hero_10`–`hero_13` 的画面对照；重叠检查仍是 0；实际玩一遍。
 
 ---
 
-## 6. 第四阶段：过场一、第二幕、过场二
+## 6. 第四阶段：阳台、巨像、第二幕
 
-- **过场一**（`Shadow1`，数据在 `acts.shadow1`）：94 片碎片，每片是 `DG_Plane` 加上 `bust.png` 里的一小块（`uv_rect`），颜色纯黑、不受雾影响。站在 `viewpoint_eye` 往 `look_dir` 看（容差：距离 1.3 m、角度 11°），碎片会拼成戴帽子的人影；拼上的那一刻眼睛亮起，播放 T1 的两句台词。如果玩家没找到这个点、直接走过去（越过站位点 5 m），也照样触发。碎片在第一幕出口打开之前是隐藏的。
-- **第二幕**（`Act2`，数据在 `acts.act2`）：一踏上舞台就接管操作，把玩家送到舞台中心；8 根三棱柱从地面长出来；接着三棱柱绕中心公转一圈（12.5 s）、自转三圈，玩家脚下的影子转圈、往前走、分成两个；换装（两根柱子上的人影交换姿势）；两个影子站上台座，播放 A2-0；交还操作，记忆圈亮起。三张面具都看过以后是"指认"：靠近台座按 E。灰盒里唐璜在左边还是右边是随机的，发抖的那个是仆从（戴仆从面具时抖得明显）。
-- **过场二**：走到 z = −116（UE Y = −11600）播放 T2。
-
-第四阶段做完就回报，同样附参考机位的对照截图。
+- **阳台**：路被挡住，只开着朝中心的小平台；平台尽头两块 Sail 并排形成 V 形窗。站在 `scenes.balcony.viewpoint_eye` 1.4 m 以内、朝 `aim_at` 看 12° 以内，就算对准（90 秒后也会自动触发）。对准：点亮眼睛 → 台词 T1 → 巨像组装（`cloud` → `stand`）→ 进度上限放到第二幕。
+- **第二幕**：踏上旋转舞台（半径 11 m，高 0.35 m）后接管操作，舞台转 110°（9 秒）把玩家带进来，棱柱走向 `neutral`；把玩家送到中心；棱柱绕中心公转一圈并各自转三圈（12.5 秒，玩家脚下的影子转圈、分成两个）；换装；台座走向 `neutral`；影子出现；台词 A2-0；面具；指认；棱柱走向 `exit`；走出舞台时播 T2。
 
 ---
 
 ## 7. 第五阶段：第三幕和结局
 
-- 走廊从 z −126 到 −190 由宽 14 m 收窄到 2.4 m，之后宽度不变，一直到玻璃（z −198）。两侧的墙见 `acts.act3.walls`。地上铺 3200 张低面数面具（用 Instanced Static Mesh），踩上去是铁片相撞带回声的声音（声音由组员做，先留好接口）。
-- 一进走廊，面具栏里的三张面具就掉到地上，从此不能再戴面具。离玻璃 13 m 以内走路逐渐变慢（最慢是原速的 0.43）；离玻璃 3 m 时停下。
-- 结局的顺序照 `Act3.#ending`：问话 → 一个选项（15 秒内不选就算沉默）→ 雾散开，镜头抬到俯仰 0.62 rad，看清是骑士长 → A3-2 → 玻璃裂开 → 四周的墙倒下，颜色变成 inferno → 张开的双臂 → A3-3 → 火从下往上升，人往下沉 → 黑屏 → 结尾句 → 回到主菜单。
+- 走廊风格 `finale`：最大档的几何体从雾里挤进来，路越来越窄。地上的面具用 Instanced Static Mesh，数量和分布照灰盒 `Act3.#masksOnFloor`（越往里越厚，靠墙更高，玩家踩上去会升高一点）。
+- 进入第三幕：面具从面具栏掉到地上，此后不能再戴。离终点 32 m 时巨像走向 `crouch`；离终点 12 m 以内走路变慢（最慢 0.42 倍）。
+- 结局照 `Act3.#ending`：问话 → 选项（15 秒不选算沉默）→ 雾散开，镜头转向玻璃并抬起 → A3-2 → 玻璃裂开 → 两边的墙倒下，配色变成 inferno → 第一人称看到自己的双臂被绑在横梁上 → A3-3 → 火 → 黑屏 → 结尾句 → 主菜单。
 
 ---
 
@@ -173,7 +165,7 @@
 1. 本机 UE 的确切版本。
 2. 做了什么；改了哪些文件，以及它们在 UE 工程里放在哪里。
 3. 核对结果：通过的项、没通过的项。没通过的原样贴出来。
-4. 截图：和 `prototype/reference/` 同名的对照图，放在 `ue/Reports/stage-N/`。
+4. 截图，放在 `ue/Reports/stage-N/`；能和 `docs/img/v0.2/` 对照的就并排放。
 5. 和这份文档或灰盒不一致的地方、你觉得数据有问题的地方，以及需要用户决定的问题。
 
 写完回报就停下，等用户确认。
