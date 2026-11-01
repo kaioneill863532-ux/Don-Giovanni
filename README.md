@@ -8,4 +8,5 @@
 - **设计文档 v0.2**（故事、台词、面具规则）：[docs/design.md](docs/design.md)
 - **网页灰盒 v0.2**（从头到尾都能玩）：[prototype/index.html](prototype/index.html)，说明见 [prototype/README.md](prototype/README.md)
 - **UE 交接**（给本地 Claude Code 会话照着做）：[docs/ue-handoff/README.md](docs/ue-handoff/README.md)
+- **戴面具 / 摘面具效果**（单独提取，可以先做进现有的 UE 工程）：[mask-fx/README.md](mask-fx/README.md)
 - 给 UE 的数据：[prototype/data/layout.json](prototype/data/layout.json)、[prototype/data/kit/](prototype/data/kit/)、[prototype/data/script.csv](prototype/data/script.csv)、截图 [docs/img/v0.2/](docs/img/v0.2/)
